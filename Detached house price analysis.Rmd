@@ -1,0 +1,258 @@
+---
+title: "Detached House Sale Price Analysis"
+author: "AR3031"
+date: "October 26, 2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+First-time home buyers in Greater Toronto Area are facing extreme high rise in the prices for detached houses due to Covid impact. For analysis on the situation,
+we are establishing a simple linear model, for buyers to predict the  expected sale price of detached, single family homes in Toronto and Mississauga. For this model analysis we are provided with real20.csv data file that was obtained by the Toronto Real Estate Board (TREB) on detached houses in the two neighborhoods.The data frame has five parameters which are: 
+
+• ID: property identification
+
+• sold: the actual sale price of the property in millions of Canadian dollars
+
+• list: the last list price of the property in millions of Canadian dollars
+
+• taxes: previous year’s property tax in Canadian dollars
+
+• location: M- Mississauga Neighborhood, T- Toronto Neighborhood
+
+
+## I. Exploratory Data Analysis section
+
+From the given csv file 200 randomized data were created in the name of data_fr. To visualize the relationship between the response variable "sales price" and independent variable "list", a single scatter plot has been used. As a house sales' price is set based on the prices that it was last listed therefore listed is the independent variable that would mostly control a house's sold price.   
+
+```{r,  include=FALSE, echo=FALSE, message=FALSE}
+initial_data <- read.csv("real20.csv",header=TRUE)
+dim(initial_data)
+attach(initial_data)
+
+set.seed(3031)
+data_fr <- sample(initial_data$ï..ID, size=200, replace=FALSE) #created data frame with 200 data 
+data_fr <- initial_data[data_fr,]
+#data_fr
+
+```
+
+### Making subsets:
+```{r, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+attach(data_fr)
+
+lin_mod <- lm(sold~list)
+c_dis <- cooks.distance(lin_mod)  #by using cook's distance identified the outliers.
+
+#plotting the ggplot of the data set before cleaning 
+
+highlight_df <- data_fr %>% 
+             filter(list>=6)
+
+data_fr %>% 
+  ggplot(aes(x=list,y=sold, colour = location)) + 
+  geom_point(alpha=0.3) +
+  geom_point(data=highlight_df, 
+             aes(x=list,y=sold), 
+             size=6) +labs(x= "Listed Price in Millions CAD", y= "Sales prices in Million CAD", title= "Sales Price vs Listed Price w/ the Outliers (AR3031)") +  scale_colour_discrete(limits=c('M', 'T'), labels=c('Missasuaga', 'Toronto'))
+```
+
+
+Figure 1. Scatter plot representing the relationship between the Sale Price and Listed price (with the outliers)
+
+
+The scatterplot shows the positive correlation between the houses' listed prices and their sales price.The blue points represents the houses' sales prices in Toronto, and the orange represents for Mississauga neighborhood. 
+
+Evidently the value with the larger data points depicts 2 extreme x values which do not follow the linear trend of the rest of the data. Therefore these 2 extreme values can be predicted as the outliers . 
+
+For a better analysis, cook's distance has been used to identify the outliers and later cleaning the data. After eliminating the outliers found from the Cook's distance, a new subset was created. Using ggplot() function drew two scatterplots of the response variable: sale price in relation with (i) list price and then (ii) taxes.
+
+```{r, echo=FALSE, message=FALSE}
+imp_vals <- as.numeric(names(c_dis)[(c_dis > (4/nrow(data_fr)))])
+without_ol <- data_fr[-imp_vals, ]   #deleted the the outlier values from the our data frame and created a new sample data without the outliers
+
+#plotting the sold vs list ggplot after cleaning  
+plot_list <- ggplot(without_ol, aes(x=list,y=sold, color = location))+geom_point() + labs(x= "Listed price in Millions CAD", y= "Sales prices in Millions CAD", title="Sales Price vs Listed Price w/o the Outliers (AR3031)") + scale_colour_discrete(limits=c('M', 'T'), labels=c('Mississauga', 'Toronto')) 
+plot_list
+
+```
+
+
+Figure 2. Scatter plot representing the relationship between the Sale Price and Listed price (without the outliers)
+
+After, removing the outliers significantly changed the range of the independent variable (listed price). Thus the slope of the linearity is less steep. Therefore, it can be concluded that the two values are influential points. 
+
+```{r, echo=FALSE, message=FALSE, warning = FALSE}
+
+attach(without_ol)
+
+# plotted the ggplot for sold vs taxes without the outliers 
+plot_taxes <- ggplot(without_ol, aes(x=taxes,y=sold, color = location))+geom_point()+ labs(x= "Taxes in CAD", y= "Sales prices in Million", title= "Relationship Between the Houses' Sales Price vs Taxes (AR3031)") + scale_colour_discrete(limits=c('M', 'T'), labels=c('Missasuaga', 'Toronto'))
+plot_taxes
+```
+
+
+Figure 3. Scatter plot representing the relationship between the Sale Price and Taxes (without the outliers)
+
+
+
+### Interpretation of Three Models: 
+
+
+
+```{r, echo=FALSE, message=FALSE, warning = FALSE}
+library(ggpubr)
+plot_all <- ggplot(data_fr, aes(x=list,y=sold, color = location))+geom_point() + labs(x= "Listed Price in Millions CAD", y= "Sales prices in Million CAD", title= "Sales Price vs Listed Price w/ the Outliers (AR3031)") + scale_colour_discrete(limits=c('M', 'T'), labels=c('Missasuaga', 'Toronto'))
+ggarrange(plot_all, plot_list, plot_taxes, widths = c(5,5))
+
+```
+
+
+Figure 4: Side by Side representation of the Three plots 
+
+
+• In the first plot the highest range of the listed prices exceeded eighty million CAD and the maximum value in that range had an unrealistic sold price. It's highly unlikely that a house in Toronto that is listed as 80 Million CAD will be sold at around 1.5 Million CAD. Therefore, this is definitely an extreme point.  
+
+
+• In the second plot, the linearity is of the data trend is more visible than the first plot. Even though both the first and the second plots illustrates the same two variables (response variable: Sales price of the house, Explanatory variable: Listed Prices of the House), from the second it can seen than the house prices data in Toronto is more scattered than the Mississauga ones. Therefore, it can be predicted that the variance of the Mississauga sub data set would be less than the Toronto sub data set. 
+
+
+• The third plot shows the relationship between the sales price vs the taxes. Here, the data points are more scattered than the previous plots and there are quite a few outliers for both Toronto and Mississauga houses.Even though there is a hint of linearity for both of the sub data sets, still the scatterplot follows a somewhat clustered pattern. Therefore, can be predicted to have higher 
+residual values. 
+
+
+
+## II. Methods and Model
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+#SLR for all with ouliers, Toronto and Mississauga data
+mod_all = lm((without_ol$sold)~(without_ol$list))
+s1<-summary(mod_all)
+
+mod_T = lm(without_ol$sold[without_ol$location == "T"]~without_ol$list[without_ol$location == "T"])
+s2<-summary(mod_T)
+
+mod_M = lm(without_ol$sold[without_ol$location == "M"]~without_ol$list[without_ol$location == "M"])
+s3<-summary(mod_M)
+
+
+#creating the summary table for the 
+
+i0 <- matrix(c(0.0079, 0.6360, 0.9755))
+i1 <- matrix(c(summary(mod_all)$coefficients[2,1], summary(mod_T)$coefficients[2,1], summary(mod_M)$coefficients[2,1]))
+
+i2<-matrix(c(summary(mod_all)$coefficients[2,2], summary(mod_T)$coefficients[2,2], summary(mod_M)$coefficients[2,2]))
+
+i3<-matrix(c(summary(mod_all)$coefficients[2,3], summary(mod_T)$coefficients[2,3], summary(mod_M)$coefficients[2,3]))
+
+#creating a table with 1st 4 columns R2', 'est intercept', 'est slope' amd 'est var of e' and rounding them to 4 decimal places 
+
+subs <- matrix(c(i0, i1, i2, i3), ncol=4)
+
+subs.table <- as.table(subs)
+subs.table <- round(subs.table[1:3,1:4],4)
+
+#adding the p values to the table and giving names to the 5 columns and 3 rows 
+tble=cbind(subs.table, c(1.6762e-60, 3.7952e-07,2.926e-04))
+
+colnames(tble) <- c('R2', 'est intercept', 'est slope', 'est var of e', 'p-val')
+rownames(tble) <- c('SLR summary (All)', 'SLR summary (Tor)', 'SLR summary (Mis)') 
+
+tble
+
+#creating confidence intervals for each of the 3 types of the data 
+con_all <- confint(mod_all, level=0.95)
+
+con_T <-confint(mod_T, level=0.95)
+con_M <- confint(mod_M, level=0.95)
+
+con <- matrix(c(con_all[2,], con_T[2,], con_M[2,]), ncol = 2)
+con.table <- as.table(con)
+con.table <- round(con.table, 4)
+
+colnames(con.table) <- c('Upper Bound', 'Lower Bound')
+rownames(con.table) <- c('95% CI (All)', '95% CI (Tor)', '95% CI (Mis)') 
+
+con.table
+```
+Table: Summary of the Three Linear Models (for all data set, for Toronto Houses, for Mississauga House) and Their Confidence Intervals 
+
+
+
+In comparison with the 5% significant level, the very small P-values supports the validity of our analysis. Therefore, we have strong evidence to reject the null hypothesis of the slope of all models being 0.From the table above the three regression models are: 
+
+1. Simple Linear Regression (SLR) summary of All 200 data from the initial data frame: y = 0.0327x +0.7289    
+
+2. SLR summary of the house sales vs listed price data in the Toronto neighborhood: y = 0.0486x +0.6660    
+
+3. SLR summary of the house sales vs listed price data in the Mississauga  neighborhood: y = 0.0161x +0.9254        
+
+
+The models shows that Toronto SLR model has the highest slope (0.0486). It is approximately 4% higher than the slope of the Mississauga model. Moreover the high slope value in the 1st model (depicting all data) is because the Toronto values may possibly have a higher influence in our data set. This can be due to more data collected for the Toronto neighborhood than the other which can be an indication a possible bias in our data set. 
+
+The higher slope in Toronto Model shows that the sales price of detached houses in Toronto increases higher, with a given listed price in million that Mississauga. Therefore, the area is factor in terms of the buyer's affordability to buy a detached house. 
+
+The R^2 values for the three models show that based on the location the correlation between the sales price and listed price of a house can be different. A high R^2 value (0.9755) of the Mississauga model shows that the correlation between the listed price and sales price is very strong in that neighborhood.This value is consistent with the inference made in part I from the 2nd plot (sales prices vs listed price without the outliers). 
+
+The smaller R^2 values (0.6360) for the Toronto model shows that the correlation between the two variables are not as strong but there are moderate positive correlation between the variables. This is found as we have seen in part I that data sets for Toronto are more scattered. 
+
+Finally the R^2 of the all data seems a bit unusually small, which can be due to the bias in our data as prevously mentioned. As we have seen that our total data frame is highly influenced by the Toronto sub data sets and due to that reason, no correlation between the two variables has appeared in this case. 
+
+
+A pooled two-sample t-test can be used to determine if there is a statistically significant difference between the slopes of the SLR models of the two neighborhoods. However, for such a test, the Toronto and Mississauga samples must meet some conditions. 
+
+Firstly, the two populations have to be independent. As no detailed information is provided regarding how Toronto Real Estate Board (TREB) has collected the data on detached houses in two separate neighborhoods or what factors have influenced the data collection, therefore we can not certainly say that the two populations are independent of each other.
+
+The second condition is the variances of the two population variances must be equal which in this case evidently has not met. As the plots seen in the part I, the Toronto sample was more scattered than the Mississauga one. Therefore, it can be inferred that their variances are most likely different. Thus in my opinion, a pooled two-sample t-test is not appropriate in this case.
+
+
+
+## III. Discussion and Limitations section.
+
+The goal of this analysis is to provide the future house buyers with a reliable correlation between a sales price of house with its last listed price through a "House sales price prediction model". In part II, as the SLR for Mississauga has the highest R^2 value which represents the largest positive correlation. Therefore I  believe, this model gives the best prediction of the house sales price  for a given listed price, that can concluded for a larger population. Moreover, the low p value (2.9260e-04) also proves the validity of the selected model.
+
+
+### Violations of the normal error SLR assumptions for model II
+
+The four normal error SLR assumptions for the selected model would be: 
+1. A simple linear model is appropriate, which the plots and the table values have shown that the selected model meets. 
+2. There is not enough information provided to determine if the errors are correlated. 
+
+3. The errors have constant variance. For this a residuals vs fitted values will be plotted.  
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+df_split <- split(without_ol, without_ol$location)
+m_df <- df_split$M
+
+er.lm = lm(m_df$sold ~ m_df$list, data=m_df) 
+er.res = resid(er.lm)
+
+
+plot(m_df$sold, er.res, xlab= "Sales price in Millions CAD", ylab="Residuals", main = "Residuals vs Fitted Sales Prices AR3031") 
+
+abline(lsfit(m_df$sold,er.res), col = "sea green", lwd = 2)
+```
+The plot depicts that the errors have constant variance, as the residuals are scattered randomly around zero without following any pattern.
+
+
+4. The errors are Normally distributed.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+df_split <- split(without_ol, without_ol$location)
+m_df <- df_split$M
+
+qqnorm(m_df$list, m_df$sold, pch = 1, ylim = c(min(sold), max(sold)), frame = TRUE, main = "Normal Q-Q Plot AR3031", xlab = "Theoritical Quantities (m_df$list ~ m_df$sold)", ylab = "Sample Quantile")
+qqline(m_df$list,m_df$sold, col = "blue", lwd = 2)
+
+```
+
+
+From the plot, it is evident that the model violates the assumption of the errors being normally distributed. The points are spread in an non-linear, exponential pattern. The offset between the line and the points suggests that the mean of the model data is not zero. 
+
+
+The plot or lot size of the house and the number of rooms in the house can be the two potential numeric predictors that could be used to fit a multiple linear regression for sale price. For both of these predictors, the larger the number is the higher the price would be.
+
+
